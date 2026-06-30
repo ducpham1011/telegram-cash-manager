@@ -79,6 +79,7 @@ async def root():
     }
 
 @app.get("/webapp", response_class=HTMLResponse)
+@app.get("/webapp/index.html", response_class=HTMLResponse)
 async def webapp_page():
     """Serve trang quét QR trực tiếp cho Telegram WebApp"""
     webapp_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "webapp", "index.html")
