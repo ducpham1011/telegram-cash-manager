@@ -54,10 +54,10 @@ class QRGenerator:
     def generate_pay_link(self, bank_id, account_no, amount, content):
         """
         Tạo Link thanh toán nhanh (Quick Pay Link) để mở thẳng hoặc điều hướng tới app ngân hàng
-        Sử dụng dịch vụ chuyển tiếp pay.vietqr.co
+        Sử dụng dịch vụ chuyển tiếp trung gian của qr.sepay.vn (ổn định và hỗ trợ deep link tốt)
         """
         clean_content = remove_vietnamese_accents(content)[:20].strip()
         encoded_content = quote(clean_content)
         
-        # Cú pháp link chuyển tiếp của VietQR.co
-        return f"https://pay.vietqr.co/{bank_id}/{account_no}?amount={int(amount)}&nd={encoded_content}"
+        # Cú pháp link chuyển tiếp của qr.sepay.vn
+        return f"https://qr.sepay.vn/transfer?bank={bank_id}&acc={account_no}&amount={int(amount)}&descr={encoded_content}"
