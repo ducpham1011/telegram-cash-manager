@@ -50,7 +50,11 @@ CATEGORIES = {
 
 # Tải cấu hình
 from dotenv import load_dotenv
-load_dotenv()
+config_env_path = os.path.join(os.path.dirname(__file__), "config.env")
+if os.path.exists(config_env_path):
+    load_dotenv(config_env_path)
+else:
+    load_dotenv()
 
 config = {
     "telegram_token": os.getenv("TELEGRAM_TOKEN", ""),
@@ -58,15 +62,6 @@ config = {
     "webapp_url": os.getenv("WEBAPP_URL", ""),
     "database_path": os.getenv("DATABASE_PATH", "cash_manager.db")
 }
-
-# Hỗ trợ ghi đè bằng file config.json nếu tồn tại
-config_path = os.path.join(os.path.dirname(__file__), "config.json")
-if os.path.exists(config_path):
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config.update(json.load(f))
-    except Exception as e:
-        logger.error(f"Không thể đọc file config.json: {e}")
 
 # Khởi tạo các thành phần
 db = DBManager(config["database_path"])

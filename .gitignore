@@ -1,8 +1,8 @@
 # Configuration & Credentials
 config.json
 credentials.json
+config.env
 .env
-.env.example
 *.db
 *.db-journal
 

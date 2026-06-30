@@ -21,8 +21,8 @@ Cash Manager là một bộ công cụ Telegram Bot cá nhân tích hợp trực
 cash-manager/
 ├── webapp/                  # Chứa trang tĩnh phục vụ quét QR trực tiếp
 │   └── index.html           # Trang HTML tĩnh tích hợp Telegram WebApp SDK gọi camera quét QR
-├── config.json              # File cấu hình (Telegram Token, WebApp URL...) [Chưa commit]
-├── config.json.example      # File cấu hình mẫu
+├── config.env               # File cấu hình (Telegram Token, WebApp URL...) [Chưa commit]
+├── config.env.example       # File cấu hình mẫu
 ├── credentials.json         # Khóa bí mật kết nối API Google Sheets (Service Account) [Chưa commit]
 ├── db_manager.py            # Quản lý cơ sở dữ liệu cấu hình cục bộ SQLite
 ├── sheet_manager.py         # Quản lý tương tác đọc/ghi với Google Sheets
@@ -60,16 +60,24 @@ cash-manager/
 ### Bước 3: Cấu hình mã nguồn cục bộ
 1.  Di chuyển vào thư mục dự án và sao chép tệp cấu hình mẫu:
     ```bash
-    cp config.json.example config.json
+    cp config.env.example config.env
     ```
-2.  Mở `config.json` và điền thông tin tương ứng:
-    ```json
-    {
-      "telegram_token": "ĐIỀN_TOKEN_BOT_TELEGRAM_CỦA_BẠN",
-      "google_credentials_file": "credentials.json",
-      "webapp_url": "ĐIỀN_URL_HTTPS_WEBAPP_ĐÃ_DEPLOY",
-      "database_path": "cash_manager.db"
-    }
+2.  Mở `config.env` và điền thông tin tương ứng:
+    ```ini
+    # Cấu hình Token Telegram Bot
+    TELEGRAM_TOKEN=ĐIỀN_TOKEN_BOT_TELEGRAM_CỦA_BẠN
+
+    # Mã bảo mật (API Key) để gọi API điều khiển từ bên ngoài (tùy chọn)
+    API_KEY=your_secret_api_key_here
+
+    # URL WebApp quét QR trực tiếp đã deploy có hỗ trợ HTTPS
+    WEBAPP_URL=ĐIỀN_URL_HTTPS_WEBAPP_ĐÃ_DEPLOY
+
+    # Đường dẫn file chứng thực Google Sheets API
+    GOOGLE_CREDENTIALS_FILE=credentials.json
+
+    # Đường dẫn lưu cơ sở dữ liệu SQLite cục bộ
+    DATABASE_PATH=cash_manager.db
     ```
 
 ### Bước 4: Khởi chạy dự án

@@ -1,6 +1,0 @@
-{
-  "telegram_token": "YOUR_TELEGRAM_BOT_TOKEN",
-  "google_credentials_file": "credentials.json",
-  "webapp_url": "https://your-domain.com/webapp/index.html",
-  "database_path": "cash_manager.db"
-}
