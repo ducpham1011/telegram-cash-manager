@@ -251,11 +251,20 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     waiting_msg = await update.message.reply_text("🔍 Đang giải mã hình ảnh QR...")
     
-    # Giải mã và phân tích VietQR
-    qr_data = qr_parse.parse_image_to_vietqr(image_bytes)
-    
+    # Giải mã hình ảnh trước
+    raw_qr_string = qr_parse.decode_image(image_bytes)
+    if not raw_qr_string:
+        await waiting_msg.edit_text("❌ Không tìm thấy hoặc không thể quét được bất kỳ mã QR nào trong hình ảnh.")
+        return
+        
+    # Phân tích chuỗi QR
+    qr_data = qr_parse.parse_vietqr_string(raw_qr_string)
     if not qr_data:
-        await waiting_msg.edit_text("❌ Không tìm thấy mã QR VietQR hợp lệ trong hình ảnh của bạn.")
+        await waiting_msg.edit_text(
+            "❌ Quét được mã QR trong ảnh nhưng không thể phân tích thông tin tài khoản ngân hàng.\n\n"
+            f"📝 **Nội dung gốc quét được:**\n`{raw_qr_string}`",
+            parse_mode="Markdown"
+        )
         return
         
     await waiting_msg.delete()
@@ -271,12 +280,16 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("⚠️ Bạn cần cấu hình Google Sheet trước. Gõ lệnh `/setup_sheet`.")
         return
 
-    # Phân tích chuỗi QR chuẩn VietQR
+    # Phân tích chuỗi QR (chuẩn VietQR hoặc URL thanh toán)
     qr_data = qr_parse.parse_vietqr_string(qr_string)
     
     if not qr_data:
-        # Nếu quét trực tiếp mà không phải mã chuyển khoản hợp lệ, vẫn trả về chuỗi text thô
-        await update.message.reply_text(f"⚠️ Quét được nội dung QR không chuẩn VietQR: `{qr_string}`", parse_mode="Markdown")
+        # Nếu quét trực tiếp mà không phải mã chuyển khoản hợp lệ, hiển thị thông báo chi tiết
+        await update.message.reply_text(
+            "❌ Quét trực tiếp thành công nhưng không phân tích được thông tin tài khoản ngân hàng.\n\n"
+            f"📝 **Nội dung gốc quét được:**\n`{qr_string}`", 
+            parse_mode="Markdown"
+        )
         return
 
     await process_parsed_qr(update, chat_id, qr_data)

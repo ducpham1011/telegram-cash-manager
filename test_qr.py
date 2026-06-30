@@ -59,6 +59,19 @@ def test_integration():
     assert "Vietcombank" in parsed["bank_name"]
     
     print("=> Bộ phân tích VietQR (EMVCo Parser): OK")
+    
+    # 3. Kiểm tra giải mã URL thanh toán
+    print("\n[3] Bắt đầu kiểm thử giải mã URL thanh toán...")
+    url_test = "https://qr.vietqr.co/v2/tcb/19032664473011?amount=50000&nd=Lunch"
+    parsed_url = parser.parse_vietqr_string(url_test)
+    print(f"Kết quả phân tích URL: {parsed_url}")
+    assert parsed_url is not None
+    assert parsed_url["bank_bin"] == "970407"
+    assert parsed_url["account_number"] == "19032664473011"
+    assert parsed_url["amount"] == 50000.0
+    assert parsed_url["description"] == "Lunch"
+    print("=> Bộ giải mã URL thanh toán: OK")
+    
     print("\n🎉 TẤT CẢ CÁC KIỂM THỬ ĐÃ VƯỢT QUA THÀNH CÔNG!")
 
 if __name__ == "__main__":

@@ -118,11 +118,138 @@ class QRParser:
             i += 4 + length
         return result
 
+    def parse_url_to_vietqr(self, url):
+        """
+        Phân tích cú pháp các đường dẫn thanh toán phổ biến để bóc tách thông tin ngân hàng và tài khoản
+        """
+        url_lower = url.strip().lower()
+        
+        bank_bin = None
+        account_number = None
+        amount = None
+        description = None
+        
+        # Mapping từ shortName sang mã BIN ngân hàng
+        short_to_bin = {
+            "vcb": "970436", "vietcombank": "970436",
+            "tcb": "970407", "techcombank": "970407",
+            "mb": "970422", "mbbank": "970422",
+            "icb": "970415", "vietinbank": "970415",
+            "bidv": "970418",
+            "acb": "970416",
+            "vpb": "970432", "vpbank": "970432",
+            "tpb": "970423", "tpbank": "970423",
+            "sacombank": "970403",
+            "vba": "970405", "agribank": "970405",
+            "vib": "970441",
+            "shb": "970443",
+            "hdb": "970437", "hdbank": "970437",
+            "ocb": "970448",
+            "msb": "970426",
+            "eib": "970431", "eximbank": "970431",
+            "scb": "970429",
+            "seab": "970440", "seabank": "970440",
+            "nab": "970428", "namabank": "970428",
+            "lpb": "970449", "lpbank": "970449",
+            "bvb": "970438", "baovietbank": "970438",
+            "vietbank": "970433"
+        }
+        
+        # 1. Định dạng https://qr.vietqr.co/v2/<bank>/<account>
+        # Hoặc https://pay.vietqr.co/<bank>/<account>
+        import re
+        match1 = re.search(r"vietqr\.(co|io|vn)/(v2/)?([a-zA-Z0-9\-]+)/([0-9]+)", url_lower)
+        if match1:
+            bank_bin = match1.group(3).replace("-", "")
+            account_number = match1.group(4)
+            
+        # 2. Định dạng https://img.vietqr.io/image/<bank>-<account>-<template>.png
+        match2 = re.search(r"img\.vietqr\.io/image/([a-zA-Z0-9\-]+)-([0-9]+)", url_lower)
+        if match2:
+            bank_bin = match2.group(1).replace("-", "")
+            account_number = match2.group(2)
+            
+        # 3. Định dạng qr.sepay.vn
+        if "qr.sepay.vn" in url_lower:
+            from urllib.parse import urlparse, parse_qs
+            parsed_url = urlparse(url)
+            params = parse_qs(parsed_url.query)
+            bank_bin = params.get("bank", [None])[0]
+            account_number = params.get("acc", [None])[0]
+            amount_str = params.get("amount", [None])[0]
+            if amount_str:
+                try:
+                    amount = float(amount_str)
+                except ValueError:
+                    pass
+            description = params.get("descr", [None])[0]
+            
+        # 4. Định dạng dl.vietqr.io
+        if "dl.vietqr.io" in url_lower:
+            from urllib.parse import urlparse, parse_qs
+            parsed_url = urlparse(url)
+            params = parse_qs(parsed_url.query)
+            app = params.get("app", [None])[0]
+            ba = params.get("ba", [None])[0]
+            if ba and "@" in ba:
+                account_number, bank_bin = ba.split("@", 1)
+            elif ba:
+                account_number = ba
+                bank_bin = app
+                
+            amount_str = params.get("am", [None])[0]
+            if amount_str:
+                try:
+                    amount = float(amount_str)
+                except ValueError:
+                    pass
+            description = params.get("tn", [None])[0] or params.get("addinfo", [None])[0]
+            
+        # Lấy thêm các query parameters phổ biến (amount, addInfo, nd)
+        if (bank_bin and account_number) and (not amount or not description):
+            from urllib.parse import urlparse, parse_qs
+            parsed_url = urlparse(url)
+            params = parse_qs(parsed_url.query)
+            
+            if not amount:
+                amount_str = params.get("amount", [None])[0] or params.get("am", [None])[0]
+                if amount_str:
+                    try:
+                        amount = float(amount_str)
+                    except ValueError:
+                        pass
+            if not description:
+                description = params.get("addinfo", [None])[0] or params.get("nd", [None])[0] or params.get("tn", [None])[0]
+                
+        if bank_bin and account_number:
+            # Chuẩn hóa bank_bin (chuyển chữ viết tắt thành mã BIN số)
+            resolved_bin = short_to_bin.get(bank_bin, bank_bin)
+            bank_name = self.get_bank_name(resolved_bin)
+            
+            return {
+                "bank_bin": resolved_bin,
+                "bank_name": bank_name,
+                "account_number": account_number,
+                "account_name": "", # URL không chứa tên chủ tài khoản thụ hưởng
+                "amount": amount,
+                "description": description,
+                "qr_string": url
+            }
+            
+        return None
+
     def parse_vietqr_string(self, qr_string):
         """
-        Phân tích chuỗi VietQR chuẩn EMVCo thành các thông tin chi tiết
+        Phân tích chuỗi VietQR chuẩn EMVCo hoặc URL thanh toán thành các thông tin chi tiết
         """
-        if not qr_string or not (qr_string.startswith("00") or "38" in qr_string or "26" in qr_string):
+        if not qr_string:
+            return None
+            
+        # NẾU LÀ ĐƯỜNG DẪN (URL): Chuyển qua bộ phân tích URL
+        if qr_string.strip().lower().startswith("http"):
+            return self.parse_url_to_vietqr(qr_string)
+
+        if not (qr_string.startswith("00") or "38" in qr_string or "26" in qr_string):
             return None
 
         try:
