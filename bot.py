@@ -273,11 +273,19 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Xử lý khi nhận được dữ liệu từ WebApp quét QR trực tiếp"""
     chat_id = update.effective_chat.id
-    qr_string = update.effective_message.web_app_data.data
+    logger.info(f"Nhận được web_app_data từ chat_id: {chat_id}")
+    
+    if not update.message or not update.message.web_app_data:
+        logger.warning(f"WebApp data trống hoặc không hợp lệ từ chat_id: {chat_id}")
+        await update.effective_message.reply_text("❌ Không nhận được dữ liệu từ trình quét QR.")
+        return
+        
+    qr_string = update.message.web_app_data.data
+    logger.info(f"Dữ liệu QR gốc nhận được từ WebApp: {qr_string}")
     
     user_data = db.get_user(chat_id)
     if not user_data or not user_data.get("sheet_url"):
-        await update.message.reply_text("⚠️ Bạn cần cấu hình Google Sheet trước. Gõ lệnh `/setup_sheet`.")
+        await update.effective_message.reply_text("⚠️ Bạn cần cấu hình Google Sheet trước. Gõ lệnh `/setup_sheet`.")
         return
 
     # Phân tích chuỗi QR (chuẩn VietQR hoặc URL thanh toán)
@@ -285,13 +293,15 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     if not qr_data:
         # Nếu quét trực tiếp mà không phải mã chuyển khoản hợp lệ, hiển thị thông báo chi tiết
-        await update.message.reply_text(
+        logger.info(f"Không thể phân tích dữ liệu QR từ WebApp. Nội dung: {qr_string}")
+        await update.effective_message.reply_text(
             "❌ Quét trực tiếp thành công nhưng không phân tích được thông tin tài khoản ngân hàng.\n\n"
             f"📝 **Nội dung gốc quét được:**\n`{qr_string}`", 
             parse_mode="Markdown"
         )
         return
 
+    logger.info(f"Phân tích dữ liệu QR thành công từ WebApp: {qr_data}")
     await process_parsed_qr(update, chat_id, qr_data)
 
 async def show_qr_category_keyboard(update: Update, chat_id, temp_data):

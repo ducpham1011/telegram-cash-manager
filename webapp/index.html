@@ -172,10 +172,8 @@
                     text: "Quét mã QR VietQR cửa hàng/hóa đơn"
                 }, function(qrData) {
                     if (qrData) {
-                        // Gửi dữ liệu quét được về cho Bot
+                        // Gửi dữ liệu quét được về cho Bot (sẽ tự động đóng WebApp)
                         webapp.sendData(qrData);
-                        webapp.closeScanQrPopup();
-                        webapp.close();
                         return true;
                     }
                     showStatus("Không nhận được dữ liệu QR.", true);
