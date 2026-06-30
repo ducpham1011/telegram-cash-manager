@@ -23,6 +23,20 @@ class SheetManager:
     @property
     def client(self):
         if not self._client:
+            import os
+            import json
+            # Thử tải khóa cấu hình từ biến môi trường dạng JSON trước (cho môi trường Serverless như Vercel)
+            creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+            if creds_json:
+                try:
+                    creds_dict = json.loads(creds_json)
+                    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, self.scope)
+                    self._client = gspread.authorize(creds)
+                    return self._client
+                except Exception as e:
+                    print(f"Lỗi giải mã GOOGLE_CREDENTIALS_JSON: {e}")
+            
+            # Cách cũ: Tải từ đường dẫn file vật lý
             creds = ServiceAccountCredentials.from_json_keyfile_name(
                 self.credentials_path, self.scope
             )
@@ -32,6 +46,13 @@ class SheetManager:
     def get_service_account_email(self):
         """Trả về email của Service Account để người dùng tiện share quyền"""
         try:
+            import os
+            import json
+            creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+            if creds_json:
+                creds_dict = json.loads(creds_json)
+                return creds_dict.get("client_email")
+                
             creds = ServiceAccountCredentials.from_json_keyfile_name(
                 self.credentials_path, self.scope
             )
