@@ -295,8 +295,7 @@ async def show_qr_category_keyboard(update: Update, chat_id, temp_data):
         f"💰 **Số tiền:** {amount_str}\n"
         f"📝 **Nội dung:** {temp_data['content'] or 'Không có'}\n"
         f"🏦 **Người nhận:** {payment_details}\n\n"
-        "Vui lòng chọn danh mục chi tiêu bên dưới để ghi nhận vào Google Sheet:\n\n"
-        "💡 *Mẹo:* Nếu bấm nút thanh toán không mở được App ngân hàng, bạn hãy bấm dấu **3 chấm** ở góc phải màn hình trình duyệt Telegram và chọn **'Mở bằng trình duyệt ngoài' (Open in Safari/Chrome)**."
+        "Vui lòng chọn danh mục chi tiêu bên dưới để ghi nhận vào Google Sheet:"
     )
     
     keyboard = []
@@ -531,8 +530,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💰 **Số tiền:** {format_currency(temp_data['amount'])}\n"
                 f"📝 **Nội dung:** {temp_data['content']}\n"
                 f"🏛️ **Ngân hàng:** {bank_id.upper()} - **TK:** {account_no}\n\n"
-                "Sau khi thực hiện chuyển khoản trên ứng dụng ngân hàng của bạn, hãy quay lại đây bấm **Đã chuyển** để ghi chép.\n\n"
-                "💡 *Mẹo:* Nếu bấm nút thanh toán không tự động mở App ngân hàng, bạn hãy bấm dấu **3 chấm** ở góc phải màn hình trình duyệt Telegram và chọn **'Mở bằng trình duyệt ngoài' (Open in Safari/Chrome)**."
+                "Sau khi thực hiện chuyển khoản trên ứng dụng ngân hàng của bạn, hãy quay lại đây bấm **Đã chuyển** để ghi chép."
             ),
             reply_markup=reply_markup,
             parse_mode="Markdown"
