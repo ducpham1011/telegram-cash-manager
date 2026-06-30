@@ -1,0 +1,20 @@
+# Configuration & Credentials
+config.json
+credentials.json
+*.db
+*.db-journal
+
+# Python virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS metadata
+.DS_Store
+Thumbs.db
