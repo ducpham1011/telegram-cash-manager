@@ -87,6 +87,8 @@ STATE_AWAITING_CONTENT = 2
 STATE_AWAITING_LIMIT_TYPE = 3
 STATE_AWAITING_LIMIT_AMOUNT = 4
 STATE_AWAITING_MANUAL_BANK = 5
+STATE_AWAITING_QR_AMOUNT = 6
+STATE_AWAITING_QR_CONTENT = 7
 
 def get_vietnam_now():
     return datetime.now(TZ_VN)
@@ -279,33 +281,23 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await process_parsed_qr(update, chat_id, qr_data)
 
-async def process_parsed_qr(update: Update, chat_id, qr_data):
-    """Hiển thị thông tin QR đã quét và các tùy chọn xử lý"""
-    # Lưu thông tin giao dịch vào phiên làm việc
-    user_sessions[chat_id] = {
-        "state": STATE_NONE,
-        "temp_data": {
-            "amount": qr_data["amount"] or 0,
-            "content": qr_data["description"] or "Chuyen khoan QR",
-            "bank_bin": qr_data["bank_bin"],
-            "bank_name": qr_data["bank_name"],
-            "account_number": qr_data["account_number"],
-            "account_name": qr_data["account_name"]
-        }
-    }
+async def show_qr_category_keyboard(update: Update, chat_id, temp_data):
+    """Hiển thị bàn phím chọn danh mục cho giao dịch QR"""
+    amount_str = format_currency(temp_data["amount"])
     
-    amount_str = format_currency(qr_data["amount"]) if qr_data["amount"] else "Chưa nhập số tiền"
-    payment_details = f"{qr_data['bank_name']} - {qr_data['account_number']} ({qr_data['account_name']})"
+    # Định dạng hiển thị Tên tài khoản nhận (bỏ ngoặc đơn nếu không có tên)
+    acc_name = temp_data.get("account_name")
+    name_str = f" ({acc_name})" if acc_name else ""
+    payment_details = f"{temp_data['bank_name']} - {temp_data['account_number']}{name_str}"
     
     text = (
-        "🔍 **Kết quả quét mã QR:**\n\n"
+        "🔍 **Xác nhận giao dịch QR:**\n\n"
         f"💰 **Số tiền:** {amount_str}\n"
-        f"📝 **Nội dung:** {qr_data['description'] or 'Không có'}\n"
+        f"📝 **Nội dung:** {temp_data['content'] or 'Không có'}\n"
         f"🏦 **Người nhận:** {payment_details}\n\n"
         "Vui lòng chọn danh mục chi tiêu bên dưới để ghi nhận vào Google Sheet:"
     )
     
-    # Hiển thị danh sách danh mục để chọn trước khi ghi
     keyboard = []
     current_row = []
     for cat_id, cat_name in CATEGORIES.items():
@@ -318,13 +310,65 @@ async def process_parsed_qr(update: Update, chat_id, qr_data):
         
     keyboard.append([InlineKeyboardButton("❌ Hủy giao dịch", callback_data="cancel_spend")])
     
-    # Tạo nút thanh toán nhanh nếu có số tiền
-    if qr_data["amount"]:
-        pay_url = qr_gen.generate_pay_link(qr_data["bank_bin"], qr_data["account_number"], qr_data["amount"], qr_data["description"])
+    if temp_data["amount"]:
+        pay_url = qr_gen.generate_pay_link(temp_data["bank_bin"], temp_data["account_number"], temp_data["amount"], temp_data["content"])
         keyboard.insert(0, [InlineKeyboardButton("🔗 Mở App ngân hàng thanh toán", url=pay_url)])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+
+async def process_parsed_qr(update: Update, chat_id, qr_data):
+    """Hiển thị thông tin QR đã quét và các tùy chọn xử lý"""
+    amount = qr_data.get("amount")
+    
+    # Coi "Chuyen khoan QR" là nội dung trống cần hỏi lại để quản lý chi tiêu tốt hơn
+    description = qr_data.get("description")
+    if description == "Chuyen khoan QR" or not description:
+        description = None
+        
+    # Lưu thông tin giao dịch vào phiên làm việc
+    temp_data = {
+        "amount": amount,
+        "content": description,
+        "bank_bin": qr_data.get("bank_bin"),
+        "bank_name": qr_data.get("bank_name"),
+        "account_number": qr_data.get("account_number"),
+        "account_name": qr_data.get("account_name"),
+        "qr_string": qr_data.get("qr_string")
+    }
+    
+    user_sessions[chat_id] = {
+        "state": STATE_NONE,
+        "temp_data": temp_data
+    }
+    
+    acc_name = temp_data.get("account_name")
+    name_str = f" ({acc_name})" if acc_name else ""
+    payment_details = f"{temp_data['bank_name']} - {temp_data['account_number']}{name_str}"
+
+    # 1. Kiểm tra nếu chưa có số tiền (mã QR tĩnh)
+    if not amount or amount <= 0:
+        user_sessions[chat_id]["state"] = STATE_AWAITING_QR_AMOUNT
+        await update.message.reply_text(
+            f"🏦 **Tài khoản nhận:** {payment_details}\n\n"
+            "💰 Mã QR này không chứa thông tin số tiền.\n"
+            "Vui lòng nhập **số tiền** cần chi tiêu (ví dụ: `50k` hoặc `50000`):"
+        )
+        return
+        
+    # 2. Kiểm tra nếu chưa có nội dung chuyển khoản
+    if not description:
+        user_sessions[chat_id]["state"] = STATE_AWAITING_QR_CONTENT
+        amount_str = format_currency(amount)
+        await update.message.reply_text(
+            f"🏦 **Tài khoản nhận:** {payment_details}\n"
+            f"💰 **Số tiền:** {amount_str}\n\n"
+            "📝 Vui lòng nhập **nội dung chi tiêu** (ví dụ: `Ăn trưa`, `Mua sắm`):"
+        )
+        return
+
+    # 3. Nếu có đầy đủ, hiện luôn bàn phím chọn danh mục
+    await show_qr_category_keyboard(update, chat_id, temp_data)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Xử lý tin nhắn văn bản thông thường và luồng nhập thủ công"""
@@ -423,6 +467,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         type_str = {"daily": "Ngày", "weekly": "Tuần", "monthly": "Tháng"}[limit_type]
         await update.message.reply_text(f"✅ Đã thiết lập hạn mức **{type_str}** là **{format_currency(limit_amount)}** thành công.")
         
+    elif state == STATE_AWAITING_QR_AMOUNT:
+        amount_raw = text.lower().replace(".", "").replace(",", "").replace("đ", "").replace("vnd", "").strip()
+        amount = 0
+        try:
+            if amount_raw.endswith("k"):
+                amount = float(amount_raw[:-1]) * 1000
+            elif amount_raw.endswith("tr") or amount_raw.endswith("m"):
+                amount = float(amount_raw[:-2]) * 1000000
+            else:
+                amount = float(amount_raw)
+        except ValueError:
+            await update.message.reply_text("❌ Định dạng số tiền không hợp lệ. Vui lòng nhập lại số tiền chi tiêu (Ví dụ: 50000 hoặc 50k):")
+            return
+
+        session["temp_data"]["amount"] = amount
+        
+        # Sau khi nhập số tiền, kiểm tra xem nội dung đã có chưa
+        if not session["temp_data"].get("content"):
+            session["state"] = STATE_AWAITING_QR_CONTENT
+            await update.message.reply_text("📝 Vui lòng nhập nội dung chi tiêu (Ví dụ: Ăn trưa, Đổ xăng...):")
+        else:
+            session["state"] = STATE_NONE
+            await show_qr_category_keyboard(update, chat_id, session["temp_data"])
+
+    elif state == STATE_AWAITING_QR_CONTENT:
+        session["temp_data"]["content"] = text
+        session["state"] = STATE_NONE
+        await show_qr_category_keyboard(update, chat_id, session["temp_data"])
+
     elif state == STATE_AWAITING_MANUAL_BANK:
         # Xử lý khi nhập ngân hàng người nhận: <mã ngân hàng> <số tài khoản>
         match = re.match(r"^([a-zA-Z0-9]+)\s+([0-9]+)$", text)

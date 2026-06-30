@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import requests
 
-# Bản đồ mã BIN -> Tên viết tắt ngân hàng (Dự phòng trường hợp gọi API thất bại)
+# Bản đồ mã BIN -> Tên viết tắt ngân hàng (Đầy đủ 40+ ngân hàng tại Việt Nam)
 BACKUP_BANKS_MAP = {
     "970436": "Vietcombank (VCB)",
     "970407": "Techcombank (TCB)",
@@ -10,20 +10,43 @@ BACKUP_BANKS_MAP = {
     "970415": "VietinBank",
     "970418": "BIDV",
     "970416": "ACB",
-    "970423": "TPBank",
     "970432": "VPBank",
+    "970423": "TPBank",
     "970403": "Sacombank",
     "970405": "Agribank",
     "970441": "VIB",
     "970443": "SHB",
     "970437": "HDBank",
+    "970448": "OCB",
+    "970426": "MSB",
+    "970431": "Eximbank",
     "970429": "SCB",
     "970440": "SeABank",
     "970428": "NamABank",
+    "970414": "Oceanbank",
     "970408": "GPBank",
     "970412": "PVcomBank",
-    "970434": "Indovina",
-    "970454": "Bản Việt (BVBank)"
+    "970433": "VietBank",
+    "970438": "BaoVietBank",
+    "970446": "CoopBank",
+    "970449": "LPBank",
+    "970452": "KienLongBank",
+    "668888": "KBank",
+    "970457": "Woori Bank",
+    "970421": "VRB",
+    "458761": "HSBC",
+    "970410": "StandardChartered",
+    "970439": "PublicBank",
+    "970419": "NCB",
+    "970409": "BacABank",
+    "970427": "VietABank",
+    "970425": "ABBANK",
+    "970454": "BVBank (Bản Việt)",
+    "970444": "CBBank",
+    "422589": "CIMB",
+    "970406": "Vikki",
+    "970442": "HongLeong",
+    "796500": "DBS Bank"
 }
 
 class QRParser:
@@ -99,16 +122,15 @@ class QRParser:
         """
         Phân tích chuỗi VietQR chuẩn EMVCo thành các thông tin chi tiết
         """
-        if not qr_string or not (qr_string.startswith("00") or "38" in qr_string):
+        if not qr_string or not (qr_string.startswith("00") or "38" in qr_string or "26" in qr_string):
             return None
 
         try:
             fields = self.parse_tlv(qr_string)
             
-            # Tag 38 là thông tin tài khoản nhận tiền (Merchant Account Info)
+            # Tag 38 hoặc Tag 26 là thông tin tài khoản nhận tiền (Merchant Account Info)
             account_info_raw = fields.get("38", "")
             if not account_info_raw:
-                # Một số mã QR sử dụng Tag 26 thay cho Tag 38 tùy theo phiên bản EMVCo
                 account_info_raw = fields.get("26", "")
                 
             account_info = self.parse_tlv(account_info_raw)
@@ -119,6 +141,19 @@ class QRParser:
             
             bank_bin = payment_info.get("00", "")
             account_number = payment_info.get("01", "")
+            
+            # --- CƠ CHẾ DỰ PHÒNG (FALLBACK PARSING) ---
+            # Nếu cấu trúc lồng nhau của tag 38/26 bị khác chuẩn Napas 01, quét tất cả subtag
+            if not bank_bin or not account_number:
+                for subtag_id, subtag_val in account_info.items():
+                    sub_fields = self.parse_tlv(subtag_val)
+                    if "00" in sub_fields and "01" in sub_fields:
+                        val_00 = sub_fields["00"]
+                        # Kiểm tra xem mã BIN có hợp lý không (thường là 6 chữ số)
+                        if len(val_00) == 6 and val_00.isdigit():
+                            bank_bin = val_00
+                            account_number = sub_fields["01"]
+                            break
             
             # Tag 54 là Số tiền (Amount)
             amount_str = fields.get("54", "")
