@@ -18,10 +18,6 @@
     {
       "path": "/api/cron/reminder",
       "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/hourly_check",
-      "schedule": "0 * * * *"
     }
   ]
 }
