@@ -1,118 +1,89 @@
-import sqlite3
-import os
+from pymongo import MongoClient
 
 class DBManager:
-    def __init__(self, db_path="cash_manager.db"):
-        self.db_path = db_path
-        self.init_db()
-
-    def _get_connection(self):
-        return sqlite3.connect(self.db_path)
-
-    def init_db(self):
-        """Khởi tạo cấu trúc các bảng dữ liệu trong SQLite"""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            # Bảng lưu thông tin người dùng và cấu hình
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    chat_id INTEGER PRIMARY KEY,
-                    sheet_url TEXT,
-                    daily_limit REAL DEFAULT 0,
-                    weekly_limit REAL DEFAULT 0,
-                    monthly_limit REAL DEFAULT 0
-                )
-            """)
-            # Bảng lưu trạng thái chốt ngày của từng người dùng
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS daily_status (
-                    chat_id INTEGER,
-                    date TEXT,
-                    is_closed INTEGER DEFAULT 0,
-                    PRIMARY KEY (chat_id, date)
-                )
-            """)
-            conn.commit()
+    def __init__(self, mongodb_uri, db_name="cash_manager"):
+        """
+        Khởi tạo kết nối tới MongoDB
+        - mongodb_uri: Chuỗi kết nối MongoDB (ví dụ: mongodb+srv://...)
+        - db_name: Tên cơ sở dữ liệu (mặc định: cash_manager)
+        """
+        self.client = MongoClient(mongodb_uri)
+        self.db = self.client[db_name]
 
     def get_user(self, chat_id):
         """Lấy thông tin cấu hình của người dùng"""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT sheet_url, daily_limit, weekly_limit, monthly_limit FROM users WHERE chat_id = ?", (chat_id,))
-            row = cursor.fetchone()
-            if row:
-                return {
-                    "sheet_url": row[0],
-                    "daily_limit": row[1],
-                    "weekly_limit": row[2],
-                    "monthly_limit": row[3]
-                }
-            return None
+        user = self.db.users.find_one({"_id": chat_id})
+        if user:
+            return {
+                "sheet_url": user.get("sheet_url"),
+                "daily_limit": user.get("daily_limit", 0.0),
+                "weekly_limit": user.get("weekly_limit", 0.0),
+                "monthly_limit": user.get("monthly_limit", 0.0)
+            }
+        return None
 
     def save_user_sheet(self, chat_id, sheet_url):
         """Lưu hoặc cập nhật Google Sheet URL cho người dùng"""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO users (chat_id, sheet_url)
-                VALUES (?, ?)
-                ON CONFLICT(chat_id) DO UPDATE SET sheet_url = excluded.sheet_url
-            """, (chat_id, sheet_url))
-            conn.commit()
+        self.db.users.update_one(
+            {"_id": chat_id},
+            {"$set": {"sheet_url": sheet_url}},
+            upsert=True
+        )
 
     def save_user_limits(self, chat_id, daily=None, weekly=None, monthly=None):
         """Cập nhật hạn mức chi tiêu cho người dùng"""
-        user = self.get_user(chat_id)
-        if not user:
-            # Tạo mới user với giá trị mặc định
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO users (chat_id) VALUES (?)", (chat_id,))
-                conn.commit()
-                
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            if daily is not None:
-                cursor.execute("UPDATE users SET daily_limit = ? WHERE chat_id = ?", (daily, chat_id))
-            if weekly is not None:
-                cursor.execute("UPDATE users SET weekly_limit = ? WHERE chat_id = ?", (weekly, chat_id))
-            if monthly is not None:
-                cursor.execute("UPDATE users SET monthly_limit = ? WHERE chat_id = ?", (monthly, chat_id))
-            conn.commit()
+        update_fields = {}
+        if daily is not None:
+            update_fields["daily_limit"] = daily
+        if weekly is not None:
+            update_fields["weekly_limit"] = weekly
+        if monthly is not None:
+            update_fields["monthly_limit"] = monthly
+
+        if update_fields:
+            self.db.users.update_one(
+                {"_id": chat_id},
+                {"$set": update_fields},
+                upsert=True
+            )
 
     def is_day_closed(self, chat_id, date_str):
-        """Kiểm tra xem ngày đã chốt chưa (date_str định dạng YYYY-MM-DD hoặc DD/MM/YYYY)"""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT is_closed FROM daily_status WHERE chat_id = ? AND date = ?", (chat_id, date_str))
-            row = cursor.fetchone()
-            return row[0] == 1 if row else False
+        """Kiểm tra xem ngày đã chốt chưa (date_str định dạng DD/MM/YYYY)"""
+        doc_id = f"{chat_id}_{date_str}"
+        status = self.db.daily_status.find_one({"_id": doc_id})
+        return status.get("is_closed", False) if status else False
 
     def close_day(self, chat_id, date_str):
         """Đánh dấu ngày đã được chốt"""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO daily_status (chat_id, date, is_closed)
-                VALUES (?, ?, 1)
-                ON CONFLICT(chat_id, date) DO UPDATE SET is_closed = 1
-            """, (chat_id, date_str))
-            conn.commit()
+        doc_id = f"{chat_id}_{date_str}"
+        self.db.daily_status.update_one(
+            {"_id": doc_id},
+            {
+                "$set": {
+                    "chat_id": chat_id,
+                    "date": date_str,
+                    "is_closed": True
+                }
+            },
+            upsert=True
+        )
 
     def reopen_day(self, chat_id, date_str):
         """Mở lại ngày đã chốt nếu muốn sửa đổi"""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO daily_status (chat_id, date, is_closed)
-                VALUES (?, ?, 0)
-                ON CONFLICT(chat_id, date) DO UPDATE SET is_closed = 0
-            """, (chat_id, date_str))
-            conn.commit()
+        doc_id = f"{chat_id}_{date_str}"
+        self.db.daily_status.update_one(
+            {"_id": doc_id},
+            {
+                "$set": {
+                    "chat_id": chat_id,
+                    "date": date_str,
+                    "is_closed": False
+                }
+            },
+            upsert=True
+        )
 
     def get_all_users(self):
-        """Lấy danh sách tất cả người dùng hoạt động"""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT chat_id, sheet_url FROM users WHERE sheet_url IS NOT NULL")
-            return [{"chat_id": row[0], "sheet_url": row[1]} for row in cursor.fetchall()]
+        """Lấy danh sách tất cả người dùng có liên kết Google Sheet"""
+        cursor = self.db.users.find({"sheet_url": {"$ne": None}})
+        return [{"chat_id": user["_id"], "sheet_url": user["sheet_url"]} for user in cursor]

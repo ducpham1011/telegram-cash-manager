@@ -60,11 +60,12 @@ config = {
     "telegram_token": os.getenv("TELEGRAM_TOKEN", ""),
     "google_credentials_file": os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json"),
     "webapp_url": os.getenv("WEBAPP_URL", ""),
-    "database_path": os.getenv("DATABASE_PATH", "cash_manager.db")
+    "mongodb_uri": os.getenv("MONGODB_URI", "mongodb://localhost:27017/"),
+    "mongodb_db_name": os.getenv("MONGODB_DB_NAME", "cash_manager")
 }
 
 # Khởi tạo các thành phần
-db = DBManager(config["database_path"])
+db = DBManager(config["mongodb_uri"], config["mongodb_db_name"])
 sheet = SheetManager(config["google_credentials_file"])
 qr_gen = QRGenerator()
 qr_parse = QRParser()

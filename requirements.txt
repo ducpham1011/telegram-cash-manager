@@ -6,3 +6,4 @@ numpy==1.26.4
 APScheduler==3.10.4
 requests==2.31.0
 python-dotenv==1.0.1
+pymongo[srv]==4.6.2

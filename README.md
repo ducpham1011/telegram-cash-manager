@@ -24,7 +24,7 @@ cash-manager/
 ├── config.env               # File cấu hình (Telegram Token, WebApp URL...) [Chưa commit]
 ├── config.env.example       # File cấu hình mẫu
 ├── credentials.json         # Khóa bí mật kết nối API Google Sheets (Service Account) [Chưa commit]
-├── db_manager.py            # Quản lý cơ sở dữ liệu cấu hình cục bộ SQLite
+├── db_manager.py            # Quản lý cơ sở dữ liệu cấu hình MongoDB
 ├── sheet_manager.py         # Quản lý tương tác đọc/ghi với Google Sheets
 ├── qr_generator.py          # Module sinh mã VietQR và Pay Link mở app ngân hàng
 ├── qr_parser.py             # Module dùng OpenCV giải mã QR từ hình ảnh gửi lên
