@@ -14,6 +14,16 @@ def test_integration():
     assert "addInfo=an%20sang%20mua%20xoi" in url
     print("=> Bộ sinh link VietQR: OK")
     
+    # 1b. Kiểm tra bộ sinh link thanh toán nhanh qua dl.vietqr.io
+    pay_link = gen.generate_pay_link("970436", "1234567890", 50000, "an sang mua xoi")
+    print(f"[1b] Link thanh toan nhanh sinh ra: {pay_link}")
+    assert "dl.vietqr.io" in pay_link
+    assert "app=vcb" in pay_link
+    assert "ba=1234567890@vcb" in pay_link
+    assert "am=50000" in pay_link
+    assert "tn=an%20sang%20mua%20xoi" in pay_link
+    print("=> Bộ sinh link thanh toán nhanh (dl.vietqr.io): OK")
+    
     # 2. Kiểm tra bộ giải mã chuỗi EMVCo
     parser = QRParser()
     

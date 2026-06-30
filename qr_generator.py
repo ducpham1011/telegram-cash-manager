@@ -22,6 +22,51 @@ def remove_vietnamese_accents(text):
     
     return clean_text
 
+# Bản đồ mã BIN -> App ID để sinh link thanh toán trực tiếp qua cổng dl.vietqr.io
+BIN_TO_APP_ID = {
+    "970436": "vcb",
+    "970407": "tcb",
+    "970422": "mb",
+    "970415": "icb",
+    "970418": "bidv",
+    "970416": "acb",
+    "970432": "vpb",
+    "970423": "tpb",
+    "970403": "sacombank",
+    "970405": "vba",
+    "970441": "vib",
+    "970443": "shb",
+    "970437": "hdb",
+    "970448": "ocb",
+    "970426": "msb",
+    "970431": "eib",
+    "970429": "scb",
+    "970440": "seab",
+    "970428": "nab",
+    "970414": "oceanbank",
+    "970408": "gpb",
+    "970412": "pvcb",
+    "970433": "vietbank",
+    "970438": "bvb",
+    "970446": "coopbank",
+    "970449": "lpb",
+    "970452": "klb",
+    "970457": "wvn",
+    "970421": "vrb",
+    "458761": "hsbc",
+    "970410": "standardchartered",
+    "970439": "pbvn",
+    "970419": "ncb",
+    "970409": "bab",
+    "970427": "vab",
+    "970425": "abb",
+    "970454": "timo",
+    "970444": "cbb",
+    "422589": "cimb",
+    "970406": "vikki",
+    "796500": "dbs"
+}
+
 class QRGenerator:
     def __init__(self, default_template="compact2"):
         self.default_template = default_template
@@ -54,10 +99,14 @@ class QRGenerator:
     def generate_pay_link(self, bank_id, account_no, amount, content):
         """
         Tạo Link thanh toán nhanh (Quick Pay Link) để mở thẳng hoặc điều hướng tới app ngân hàng
-        Sử dụng dịch vụ chuyển tiếp trung gian của qr.sepay.vn (ổn định và hỗ trợ deep link tốt)
+        Sử dụng cổng deeplink chính thức dl.vietqr.io
         """
         clean_content = remove_vietnamese_accents(content)[:20].strip()
         encoded_content = quote(clean_content)
         
-        # Cú pháp link chuyển tiếp của qr.sepay.vn
-        return f"https://qr.sepay.vn/transfer?bank={bank_id}&acc={account_no}&amount={int(amount)}&descr={encoded_content}"
+        # Ánh xạ bank_id (mã BIN hoặc tên viết tắt) sang appId tương ứng của dl.vietqr.io
+        bank_key = str(bank_id).strip().lower()
+        app_id = BIN_TO_APP_ID.get(bank_key, bank_key)
+        
+        # Cú pháp link chuyển tiếp chính thức của dl.vietqr.io
+        return f"https://dl.vietqr.io/pay?app={app_id}&ba={account_no}@{app_id}&am={int(amount)}&tn={encoded_content}"
