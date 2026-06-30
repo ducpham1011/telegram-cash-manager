@@ -66,7 +66,13 @@ config = {
 
 # Khởi tạo các thành phần
 db = DBManager(config["mongodb_uri"], config["mongodb_db_name"])
-sheet = SheetManager(config["google_credentials_file"])
+
+# Đảm bảo đường dẫn tệp credentials.json là tuyệt đối
+creds_path = config["google_credentials_file"]
+if not os.path.isabs(creds_path):
+    creds_path = os.path.join(os.path.dirname(__file__), creds_path)
+
+sheet = SheetManager(creds_path)
 qr_gen = QRGenerator()
 qr_parse = QRParser()
 
