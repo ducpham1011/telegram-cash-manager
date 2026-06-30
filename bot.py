@@ -49,13 +49,17 @@ CATEGORIES = {
 }
 
 # Tải cấu hình
+from dotenv import load_dotenv
+load_dotenv()
+
 config = {
-    "telegram_token": "",
-    "google_credentials_file": "credentials.json",
-    "webapp_url": "",
-    "database_path": "cash_manager.db"
+    "telegram_token": os.getenv("TELEGRAM_TOKEN", ""),
+    "google_credentials_file": os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json"),
+    "webapp_url": os.getenv("WEBAPP_URL", ""),
+    "database_path": os.getenv("DATABASE_PATH", "cash_manager.db")
 }
 
+# Hỗ trợ ghi đè bằng file config.json nếu tồn tại
 config_path = os.path.join(os.path.dirname(__file__), "config.json")
 if os.path.exists(config_path):
     try:
